@@ -127,10 +127,19 @@ public class Utils {
    * yyyy-MM-dd
    */
   public static Date strToDateLong(String strDate) {
-    SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
-    ParsePosition pos = new ParsePosition(0);
-    Date strtodate = formatter.parse(strDate, pos);
-    return strtodate;
+    if (strDate.length() == 10) {
+      SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+      ParsePosition pos = new ParsePosition(0);
+      Date strtodate = formatter.parse(strDate, pos);
+      return strtodate;
+    } else if (strDate.length() == 19) {
+      strDate = strDate.replace("_", " ");
+      SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+      ParsePosition pos = new ParsePosition(0);
+      Date strtodate = formatter.parse(strDate, pos);
+      return strtodate;
+    }
+    return null;
   }
 
   public static String printAccount(Account account) {
@@ -233,6 +242,12 @@ public class Utils {
         result += "\n";
         result += "  balance: ";
         result += account.getAssetV2Map().get(id);
+        result += "\n";
+        result += "  latest_asset_operation_timeV2: ";
+        result += account.getLatestAssetOperationTimeV2Map().get(id);
+        result += "\n";
+        result += "  free_asset_net_usageV2: ";
+        result += account.getFreeAssetNetUsageV2Map().get(id);
         result += "\n";
         result += "}";
         result += "\n";
@@ -562,6 +577,9 @@ public class Utils {
 
   public static String printAssetIssue(AssetIssueContract assetIssue) {
     String result = "";
+    result += "id: ";
+    result += assetIssue.getId();
+    result += "\n";
     result += "owner_address: ";
     result += WalletApi.encode58Check(assetIssue.getOwnerAddress().toByteArray());
     result += "\n";
@@ -579,6 +597,9 @@ public class Utils {
     result += "\n";
     result += "num: ";
     result += assetIssue.getNum();
+    result += "\n";
+    result += "precision ";
+    result += assetIssue.getPrecision();
     result += "\n";
     result += "start_time: ";
     result += new Date(assetIssue.getStartTime());
@@ -625,6 +646,11 @@ public class Utils {
       }
     }
 
+    if (assetIssue.getId().equals("")) {
+      result += "\n";
+      result += "Note: In 3.2, you can use getAssetIssueById or getAssetIssueListByName, because 3.2 allows same token name.";
+      result += "\n";
+    }
     return result;
   }
 
@@ -1236,29 +1262,34 @@ public class Utils {
     result += "\n";
     result += printReceipt(transactionInfo.getReceipt());
     result += "\n";
-    if(transactionInfo.getUnfreezeAmount()!=0){
+    if (transactionInfo.getUnfreezeAmount() != 0) {
       result += "UnfreezeAmount: ";
       result += transactionInfo.getUnfreezeAmount();
       result += "\n";
     }
-    if(transactionInfo.getWithdrawAmount()!=0){
+    if (transactionInfo.getWithdrawAmount() != 0) {
       result += "WithdrawAmount: ";
       result += transactionInfo.getWithdrawAmount();
       result += "\n";
     }
-    if(transactionInfo.getExchangeReceivedAmount()!=0){
+    if (transactionInfo.getExchangeReceivedAmount() != 0) {
       result += "ExchangeReceivedAmount: ";
       result += transactionInfo.getExchangeReceivedAmount();
       result += "\n";
     }
-    if(transactionInfo.getExchangeInjectAnotherAmount()!=0){
+    if (transactionInfo.getExchangeInjectAnotherAmount() != 0) {
       result += "ExchangeInjectAnotherAmount: ";
       result += transactionInfo.getExchangeInjectAnotherAmount();
       result += "\n";
     }
-    if(transactionInfo.getExchangeWithdrawAnotherAmount()!=0){
+    if (transactionInfo.getExchangeWithdrawAnotherAmount() != 0) {
       result += "ExchangeWithdrawAnotherAmount: ";
       result += transactionInfo.getExchangeWithdrawAnotherAmount();
+      result += "\n";
+    }
+    if (transactionInfo.getExchangeId() != 0) {
+      result += "ExchangeId: ";
+      result += transactionInfo.getExchangeId();
       result += "\n";
     }
     result += "InternalTransactionList: ";
@@ -1268,7 +1299,8 @@ public class Utils {
     return result;
   }
 
-  public static String printInternalTransactionList(List<InternalTransaction> internalTransactions){
+  public static String printInternalTransactionList(
+      List<InternalTransaction> internalTransactions) {
     StringBuilder result = new StringBuilder("");
     internalTransactions.forEach(internalTransaction -> {
           result.append("[\n");
@@ -1276,10 +1308,12 @@ public class Utils {
           result.append("  " + ByteArray.toHexString(internalTransaction.getHash().toByteArray()));
           result.append("  \n");
           result.append("  caller_address:\n");
-          result.append("  " +ByteArray.toHexString(internalTransaction.getCallerAddress().toByteArray()));
+          result.append(
+              "  " + ByteArray.toHexString(internalTransaction.getCallerAddress().toByteArray()));
           result.append("  \n");
           result.append("  transferTo_address:\n");
-          result.append("  " +ByteArray.toHexString(internalTransaction.getTransferToAddress().toByteArray()));
+          result.append(
+              "  " + ByteArray.toHexString(internalTransaction.getTransferToAddress().toByteArray()));
           result.append("  \n");
           result.append("  callValueInfo:\n");
           StringBuilder callValueInfo = new StringBuilder("");
@@ -1287,15 +1321,14 @@ public class Utils {
           internalTransaction.getCallValueInfoList().forEach(token -> {
             callValueInfo.append("  [\n");
             callValueInfo.append("    TokenName(Default trx):\n");
-            if (null == token.getTokenId()|| token.getTokenId().length() == 0){
+            if (null == token.getTokenId() || token.getTokenId().length() == 0) {
               callValueInfo.append("    TRX(SUN)");
-            }
-            else {
+            } else {
               callValueInfo.append("    " + token.getTokenId());
             }
             callValueInfo.append("    \n");
             callValueInfo.append("    callValue:\n");
-            callValueInfo.append("    " +token.getCallValue());
+            callValueInfo.append("    " + token.getCallValue());
             callValueInfo.append("  \n");
             callValueInfo.append("  ]\n");
             callValueInfo.append("    \n");

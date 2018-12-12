@@ -289,7 +289,7 @@ public class GrpcClient {
         .setFromAddress(fromAddressBS)
         .setToAddress(toAddressBS)
         .build();
-    DelegatedResourceList delegatedResource= blockingStubFull
+    DelegatedResourceList delegatedResource = blockingStubFull
         .getDelegatedResource(request);
     return Optional.ofNullable(delegatedResource);
   }
@@ -301,14 +301,20 @@ public class GrpcClient {
 
     BytesMessage bytesMessage = BytesMessage.newBuilder().setValue(addressBS).build();
 
-    DelegatedResourceAccountIndex accountIndex= blockingStubFull
+    DelegatedResourceAccountIndex accountIndex = blockingStubFull
         .getDelegatedResourceAccountIndex(bytesMessage);
     return Optional.ofNullable(accountIndex);
   }
 
 
   public Optional<ExchangeList> listExchanges() {
-    ExchangeList exchangeList = blockingStubFull.listExchanges(EmptyMessage.newBuilder().build());
+    ExchangeList exchangeList;
+    if (blockingStubSolidity != null) {
+      exchangeList = blockingStubSolidity.listExchanges(EmptyMessage.newBuilder().build());
+    } else {
+      exchangeList = blockingStubFull.listExchanges(EmptyMessage.newBuilder().build());
+    }
+
     return Optional.ofNullable(exchangeList);
   }
 
@@ -316,7 +322,14 @@ public class GrpcClient {
     BytesMessage request = BytesMessage.newBuilder().setValue(ByteString.copyFrom(
         ByteArray.fromLong(Long.parseLong(id))))
         .build();
-    Exchange exchange = blockingStubFull.getExchangeById(request);
+
+    Exchange exchange;
+    if (blockingStubSolidity != null) {
+      exchange = blockingStubSolidity.getExchangeById(request);
+    } else {
+      exchange = blockingStubFull.getExchangeById(request);
+    }
+
     return Optional.ofNullable(exchange);
   }
 
@@ -536,25 +549,36 @@ public class GrpcClient {
     return blockingStubFull.getAccountResource(request);
   }
 
-
-  // equal to getAssetIssueById
   public Contract.AssetIssueContract getAssetIssueByName(String assetName) {
     ByteString assetNameBs = ByteString.copyFrom(assetName.getBytes());
     BytesMessage request = BytesMessage.newBuilder().setValue(assetNameBs).build();
-    return blockingStubFull.getAssetIssueById(request);
+    if (blockingStubSolidity != null) {
+      return blockingStubSolidity.getAssetIssueByName(request);
+    } else {
+      return blockingStubFull.getAssetIssueByName(request);
+    }
   }
 
   public Optional<AssetIssueList> getAssetIssueListByName(String assetName) {
     ByteString assetNameBs = ByteString.copyFrom(assetName.getBytes());
     BytesMessage request = BytesMessage.newBuilder().setValue(assetNameBs).build();
-    AssetIssueList assetIssueList = blockingStubFull.getAssetIssueListByName(request);
-    return Optional.ofNullable(assetIssueList);
+    if (blockingStubSolidity != null) {
+      AssetIssueList assetIssueList = blockingStubSolidity.getAssetIssueListByName(request);
+      return Optional.ofNullable(assetIssueList);
+    } else {
+      AssetIssueList assetIssueList = blockingStubFull.getAssetIssueListByName(request);
+      return Optional.ofNullable(assetIssueList);
+    }
   }
 
   public Contract.AssetIssueContract getAssetIssueById(String assetId) {
     ByteString assetIdBs = ByteString.copyFrom(assetId.getBytes());
     BytesMessage request = BytesMessage.newBuilder().setValue(assetIdBs).build();
-    return blockingStubFull.getAssetIssueById(request);
+    if (blockingStubSolidity != null) {
+      return blockingStubSolidity.getAssetIssueById(request);
+    } else {
+      return blockingStubFull.getAssetIssueById(request);
+    }
   }
 
   public NumberMessage getTotalTransaction() {

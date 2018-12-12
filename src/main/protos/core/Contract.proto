@@ -107,10 +107,11 @@ message AssetIssueContract {
   int64 total_supply = 4;
   repeated FrozenSupply frozen_supply = 5;
   int32 trx_num = 6;
+  int32 precision = 7;
   int32 num = 8;
   int64 start_time = 9;
   int64 end_time = 10;
-  int64 order = 11; // usless
+  int64 order = 11; // useless
   int32 vote_score = 16;
   bytes description = 20;
   bytes url = 21;
@@ -185,7 +186,7 @@ message CreateSmartContract {
   bytes owner_address = 1;
   SmartContract new_contract = 2;
   int64 call_token_value = 3;
-  string token_id = 4;
+  int64 token_id = 4;
 }
 
 message TriggerSmartContract {
@@ -194,7 +195,7 @@ message TriggerSmartContract {
   int64 call_value = 3;
   bytes data = 4;
   int64 call_token_value = 5;
-  string token_id = 6;
+  int64 token_id = 6;
 }
 
 message BuyStorageContract {

@@ -415,7 +415,9 @@ public class Client {
     }
   }
 
-  // use id instead of name in 3.2 version.
+  // In 3.2 version, this function will return null if there are two or more asset with the same token name,
+  // so please use getAssetIssueById or getAssetIssueListByName.
+  // This function just remains for compatibility.
   private void getAssetIssueByName(String[] parameters) {
     if (parameters == null || parameters.length != 1) {
       System.out.println("GetAssetIssueByName needs 1 parameter like following: ");
@@ -592,12 +594,12 @@ public class Client {
 
   private void assetIssue(String[] parameters)
       throws IOException, CipherException, CancelException {
-    if (parameters == null || parameters.length < 10 || (parameters.length & 1) == 1) {
+    if (parameters == null || parameters.length < 11 || (parameters.length & 1) == 0) {
       System.out
           .println("Use the assetIssue command for features that you require with below syntax: ");
       System.out.println(
-          "AssetIssue AssetName TotalSupply TrxNum AssetNum "
-              + "StartDate EndDate Description Url FreeNetLimitPerAccount PublicFreeNetLimit"
+          "AssetIssue AssetName TotalSupply TrxNum AssetNum Precision "
+              + "StartDate EndDate Description Url FreeNetLimitPerAccount PublicFreeNetLimit "
               + "FrozenAmount0 FrozenDays0 ... FrozenAmountN FrozenDaysN");
       System.out
           .println(
@@ -611,14 +613,15 @@ public class Client {
     String totalSupplyStr = parameters[1];
     String trxNumStr = parameters[2];
     String icoNumStr = parameters[3];
-    String startYyyyMmDd = parameters[4];
-    String endYyyyMmDd = parameters[5];
-    String description = parameters[6];
-    String url = parameters[7];
-    String freeNetLimitPerAccount = parameters[8];
-    String publicFreeNetLimitString = parameters[9];
+    String precisionStr = parameters[4];
+    String startYyyyMmDd = parameters[5];
+    String endYyyyMmDd = parameters[6];
+    String description = parameters[7];
+    String url = parameters[8];
+    String freeNetLimitPerAccount = parameters[9];
+    String publicFreeNetLimitString = parameters[10];
     HashMap<String, String> frozenSupply = new HashMap<>();
-    for (int i = 10; i < parameters.length; i += 2) {
+    for (int i = 11; i < parameters.length; i += 2) {
       String amount = parameters[i];
       String days = parameters[i + 1];
       frozenSupply.put(days, amount);
@@ -627,6 +630,7 @@ public class Client {
     long totalSupply = new Long(totalSupplyStr);
     int trxNum = new Integer(trxNumStr);
     int icoNum = new Integer(icoNumStr);
+    int precision = new Integer(precisionStr);
     Date startDate = Utils.strToDateLong(startYyyyMmDd);
     Date endDate = Utils.strToDateLong(endYyyyMmDd);
     long startTime = startDate.getTime();
@@ -635,7 +639,7 @@ public class Client {
     long publicFreeNetLimit = new Long(publicFreeNetLimitString);
 
     boolean result = walletApiWrapper
-        .assetIssue(name, totalSupply, trxNum, icoNum, startTime, endTime,
+        .assetIssue(name, totalSupply, trxNum, icoNum, precision, startTime, endTime,
             0, description, url, freeAssetNetLimit, publicFreeNetLimit, frozenSupply);
     if (result) {
       logger.info("AssetIssue " + name + " successful !!");
@@ -1738,85 +1742,83 @@ public class Client {
     System.out.println(
         "For more information on a specific command, type the command and it will display tips");
     System.out.println("");
-    System.out.println("RegisterWallet");
-    System.out.println("ImportWallet");
-    System.out.println("ImportWalletByBase64");
-    System.out.println("ChangePassword");
-    System.out.println("Login");
-    System.out.println("Logout");
+    System.out.println("ApproveProposal");
+    System.out.println("AssetIssue");
     System.out.println("BackupWallet");
     System.out.println("BackupWallet2Base64");
-    System.out.println("GenerateAAddress");
-    System.out.println("GetAddress");
-    System.out.println("GetBalance");
-    System.out.println("GetAccount");
-    System.out.println("GetAssetIssueByAccount");
-    System.out.println("GetAccountNet");
-    System.out.println("GetAccountResource");
-    System.out.println("GetAssetIssueByName");
-    System.out.println("GetAssetIssueListByName");
-    System.out.println("GetAssetIssueById");
-    System.out.println("SendCoin");
-    System.out.println("TransferAsset");
-    System.out.println("ParticipateAssetIssue");
-    System.out.println("AssetIssue");
+    System.out.println("ChangePassword");
     System.out.println("CreateAccount");
+    System.out.println("CreateProposal");
     System.out.println("CreateWitness");
-    System.out.println("UpdateWitness");
-    System.out.println("VoteWitness");
-    System.out.println("ListWitnesses");
-    System.out.println("ListAssetIssue");
-    System.out.println("ListNodes");
-    System.out.println("ListProposals");
-    System.out.println("GetBlock");
-    System.out.println("GetTransactionCountByBlockNum");
-    System.out.println("GetTotalTransaction");
-    //   System.out.println("GetAssetIssueListByTimestamp");
-    System.out.println("GetNextMaintenanceTime");
-    //   System.out.println("GetTransactionsByTimestamp");
-    //   System.out.println("GetTransactionsByTimestampCount");
-    System.out.println("GetTransactionById");
-    System.out.println("getTransactionInfoById");
-    System.out.println("GetTransactionsFromThis");
-    //   System.out.println("GetTransactionsFromThisCount");
-    System.out.println("GetTransactionsToThis");
-    //   System.out.println("GetTransactionsToThisCount");
-    System.out.println("GetProposalById");
-    System.out.println("GetBlockById");
-    System.out.println("GetBlockByLimitNext");
-    System.out.println("GetBlockByLatestNum");
-    System.out.println("FreezeBalance");
-    System.out.println("UnfreezeBalance");
-    System.out.println("GetDelegatedResource");
-    System.out.println("GetDelegatedResourceAccountIndex");
-    System.out.println("WithdrawBalance");
-    System.out.println("UpdateAccount");
-    System.out.println("SetAccountId");
-    System.out.println("Unfreezeasset");
+    System.out.println("DeleteProposal");
     System.out.println(
         "DeployContract contractName ABI byteCode constructor params isHex fee_limit consume_user_resource_percent origin_energy_limit value token_value token_id <library:address,library:address,...>");
-    System.out.println("UpdateSetting contract_address consume_user_resource_percent");
-    System.out.println("UpdateEnergyLimit contract_address energy_limit");
-    System.out.println("TriggerContract contractAddress method args isHex fee_limit value");
+    System.out.println("ExchangeCreate");
+    System.out.println("ExchangeInject");
+    System.out.println("ExchangeTransaction");
+    System.out.println("ExchangeWithdraw");
+    System.out.println("FreezeBalance");
+    System.out.println("GenerateAddress");
+    System.out.println("GetAccount");
+    System.out.println("GetAccountNet");
+    System.out.println("GetAccountResource");
+    System.out.println("GetAddress");
+    System.out.println("GetAssetIssueByAccount");
+    System.out.println("GetAssetIssueById");
+    System.out.println("GetAssetIssueByName");
+    System.out.println("GetAssetIssueListByName");
+    System.out.println("GetBalance");
+    System.out.println("GetBlock");
+    System.out.println("GetBlockById");
+    System.out.println("GetBlockByLatestNum");
+    System.out.println("GetBlockByLimitNext");
     System.out.println("GetContract contractAddress");
-    System.out.println("UpdateAsset");
+    System.out.println("GetDelegatedResource");
+    System.out.println("GetDelegatedResourceAccountIndex");
+    System.out.println("GetExchange");
+    System.out.println("GetNextMaintenanceTime");
+    System.out.println("GetProposal");
+    System.out.println("GetTotalTransaction");
+    System.out.println("GetTransactionById");
+    System.out.println("GetTransactionCountByBlockNum");
+    System.out.println("GetTransactionInfoById");
+    System.out.println("GetTransactionsFromThis");
+    System.out.println("GetTransactionsToThis");
+    System.out.println("ImportWallet");
+    System.out.println("ImportWalletByBase64");
+    System.out.println("ListAssetIssue");
+    System.out.println("ListExchanges");
+    System.out.println("ListExchangesPaginated");
+    System.out.println("ListNodes");
+    System.out.println("ListProposals");
+    System.out.println("ListProposalsPaginated");
+    System.out.println("ListWitnesses");
+    System.out.println("Login");
+    System.out.println("Logout");
+    System.out.println("ParticipateAssetIssue");
+    System.out.println("RegisterWallet");
+    System.out.println("SendCoin");
+    System.out.println("SetAccountId");
+    System.out.println("TransferAsset");
+    System.out.println("TriggerContract contractAddress method args isHex fee_limit value");
     System.out.println("UnfreezeAsset");
+    System.out.println("UnfreezeBalance");
+    System.out.println("UnfreezeAsset");
+    System.out.println("UpdateAccount");
+    System.out.println("UpdateAsset");
+    System.out.println("UpdateEnergyLimit contract_address energy_limit");
+    System.out.println("UpdateSetting contract_address consume_user_resource_percent");
+    System.out.println("UpdateWitness");
+    System.out.println("VoteWitness");
+    System.out.println("WithdrawBalance");
 //    System.out.println("buyStorage");
 //    System.out.println("buyStorageBytes");
 //    System.out.println("sellStorage");
-    System.out.println("CreateProposal");
-    System.out.println("ListProposals");
-    System.out.println("listproposalpaginated");
-    System.out.println("GetProposal");
-    System.out.println("ApproveProposal");
-    System.out.println("DeleteProposal");
-    System.out.println("ExchangeCreate");
-    System.out.println("ExchangeInject");
-    System.out.println("ExchangeWithdraw");
-    System.out.println("ExchangeTransaction");
-    System.out.println("ListExchanges");
-    System.out.println("ListExchangespaginated");
-    System.out.println("GetExchange");
+//   System.out.println("GetAssetIssueListByTimestamp");
+//   System.out.println("GetTransactionsByTimestamp");
+//   System.out.println("GetTransactionsByTimestampCount");
+//   System.out.println("GetTransactionsFromThisCount");
+//   System.out.println("GetTransactionsToThisCount");
     System.out.println("Exit or Quit");
 
     System.out.println("Input any one of the listed commands, to display how-to tips.");
