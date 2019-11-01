@@ -1,6 +1,7 @@
 package org.tron.walletcli;
 
 import com.beust.jcommander.JCommander;
+import com.google.common.primitives.Longs;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -39,8 +40,10 @@ import org.tron.api.GrpcAPI.TransactionList;
 import org.tron.api.GrpcAPI.TransactionListExtention;
 import org.tron.api.GrpcAPI.TransactionSignWeight;
 import org.tron.api.GrpcAPI.WitnessList;
+import org.tron.common.crypto.Hash;
 import org.tron.common.utils.AbiUtil;
 import org.tron.common.utils.ByteArray;
+import org.tron.common.utils.ByteUtil;
 import org.tron.common.utils.Utils;
 import org.tron.core.exception.CancelException;
 import org.tron.core.exception.CipherException;
@@ -1560,6 +1563,94 @@ public class Client {
     }
   }
 
+  private void clearContractABI(String[] parameters)
+      throws IOException, CipherException, CancelException {
+    if (parameters == null ||
+        parameters.length != 1) {
+      System.out.println("clearContractABI needs 1 parameters like following: ");
+      System.out.println("clearContractABI contract_address");
+      return;
+    }
+
+    byte[] contractAddress = WalletApi.decodeFromBase58Check(parameters[0]);
+    if (contractAddress == null) {
+      return;
+    }
+
+    boolean result = walletApiWrapper.clearContractABI(contractAddress);
+    if (result) {
+      System.out.println("clearContractABI successfully");
+    } else {
+      System.out.println("clearContractABI failed");
+    }
+  }
+
+  private void updateBrokerage(String[] parameters)
+      throws IOException, CipherException, CancelException {
+    if (parameters == null || parameters.length != 2) {
+      System.out.println("updateBrokerage needs 2 parameters like following: ");
+      System.out.println("updateBrokerage OwnerAddress brokerage");
+      return;
+    }
+
+    int index = 0;
+    byte[] ownerAddress = null;
+
+    ownerAddress = WalletApi.decodeFromBase58Check(parameters[index++]);
+    if (ownerAddress == null) {
+      System.out.println("Invalid OwnerAddress.");
+      return;
+    }
+
+    int brokerage = Integer.valueOf(parameters[index++]);
+    if (brokerage < 0 || brokerage > 100) {
+      return;
+    }
+
+    boolean result = walletApiWrapper.updateBrokerage(ownerAddress, brokerage);
+    if (result) {
+      System.out.println("updateBrokerage successfully");
+    } else {
+      System.out.println("updateBrokerage failed");
+    }
+  }
+
+  private void getReward(String[] parameters) {
+    int index = 0;
+    byte[] ownerAddress = null;
+    if (parameters.length == 1) {
+      ownerAddress = WalletApi.decodeFromBase58Check(parameters[index++]);
+      if (ownerAddress == null) {
+        System.out.println("Invalid OwnerAddress.");
+        return;
+      }
+    } else {
+      System.out.println("getReward needs 1 parameters like following: ");
+      System.out.println("getReward [OwnerAddress]");
+      return;
+    }
+    NumberMessage reward = walletApiWrapper.getReward(ownerAddress);
+    System.out.println("The reward is : " + reward.getNum());
+  }
+
+  private void getBrokerage(String[] parameters) {
+    int index = 0;
+    byte[] ownerAddress = null;
+    if (parameters.length == 1) {
+      ownerAddress = WalletApi.decodeFromBase58Check(parameters[index++]);
+      if (ownerAddress == null) {
+        System.out.println("Invalid OwnerAddress.");
+        return;
+      }
+    } else {
+      System.out.println("getBrokerage needs 1 parameters like following: ");
+      System.out.println("getBrokerage [OwnerAddress]");
+      return;
+    }
+    NumberMessage brokerage = walletApiWrapper.getBrokerage(ownerAddress);
+    System.out.println("The brokerage is : " + brokerage.getNum());
+  }
+
   private String[] getParas(String[] para) {
     String paras = String.join(" ", para);
     Pattern pattern = Pattern.compile(" (\\[.*?\\]) ");
@@ -1594,7 +1685,7 @@ public class Client {
         parameters.length < 11) {
       System.out.println("DeployContract needs at least 8 parameters like following: ");
       System.out.println(
-          "DeployContract contractName ABI byteCode constructor params isHex fee_limit consume_user_resource_percent origin_energy_limit value token_value token_id(e.g: TRXTOKEN, use # if don't provided) <library:address,library:address,...>");
+          "DeployContract contractName ABI byteCode constructor params isHex fee_limit consume_user_resource_percent origin_energy_limit value token_value token_id(e.g: TRXTOKEN, use # if don't provided) <library:address,library:address,...> <lib_compiler_version(e.g:v5)>");
       System.out.println(
           "Note: Please append the param for constructor tightly with byteCode without any space");
       return;
@@ -1633,14 +1724,21 @@ public class Client {
     }
     String libraryAddressPair = null;
     if (parameters.length > idx) {
-      libraryAddressPair = parameters[idx];
+      libraryAddressPair = parameters[idx++];
     }
+
+    String compilerVersion = null;
+    if (parameters.length > idx) {
+      compilerVersion = parameters[idx];
+    }
+
     // TODO: consider to remove "data"
     /* Consider to move below null value, since we append the constructor param just after bytecode without any space.
      * Or we can re-design it to give other developers better user experience. Set this value in protobuf as null for now.
      */
     boolean result = walletApiWrapper.deployContract(contractName, abiStr, codeStr, feeLimit, value,
-        consumeUserResourcePercent, originEnergyLimit, tokenValue, tokenId, libraryAddressPair);
+        consumeUserResourcePercent, originEnergyLimit, tokenValue, tokenId, libraryAddressPair,
+        compilerVersion);
     if (result) {
       System.out.println("Broadcast the createSmartContract successfully.\n"
           + "Please check the given transaction id to confirm deploy status on blockchain using getTransactionInfoById command.");
@@ -1649,25 +1747,44 @@ public class Client {
     }
   }
 
-  private void triggerContract(String[] parameters)
+  private void triggerContract(String[] parameters, boolean isConstant)
       throws IOException, CipherException, CancelException, EncodingException {
-    if (parameters == null ||
-        parameters.length < 8) {
-      System.out.println("TriggerContract needs 6 parameters like following: ");
-      System.out.println(
-          "TriggerContract contractAddress method args isHex fee_limit value token_value token_id(e.g: TRXTOKEN, use # if don't provided)");
-      // System.out.println("example:\nTriggerContract password contractAddress method args value");
-      return;
+    String cmdMethodStr = isConstant ? "TriggerConstantContract" : "TriggerContract";
+
+    if (isConstant) {
+      if (parameters == null || parameters.length < 4) {
+        System.out.println(cmdMethodStr + " needs 4 parameters like following: ");
+        System.out.println(
+            cmdMethodStr
+                + " contractAddress method args isHex");
+        return;
+      }
+    } else {
+      if (parameters == null || parameters.length < 8) {
+        System.out.println(cmdMethodStr + " needs 8 parameters like following: ");
+        System.out.println(
+            cmdMethodStr
+                + " contractAddress method args isHex fee_limit value token_value token_id(e.g: TRXTOKEN, use # if don't provided)");
+        // System.out.println("example:\nTriggerContract password contractAddress method args value");
+        return;
+      }
     }
 
     String contractAddrStr = parameters[0];
     String methodStr = parameters[1];
     String argsStr = parameters[2];
     boolean isHex = Boolean.valueOf(parameters[3]);
-    long feeLimit = Long.valueOf(parameters[4]);
-    long callValue = Long.valueOf(parameters[5]);
-    long tokenCallValue = Long.valueOf(parameters[6]);
-    String tokenId = parameters[7];
+    long feeLimit = 0;
+    long callValue = 0;
+    long tokenCallValue = 0;
+    String tokenId = "";
+
+    if (!isConstant) {
+      feeLimit = Long.valueOf(parameters[4]);
+      callValue = Long.valueOf(parameters[5]);
+      tokenCallValue = Long.valueOf(parameters[6]);
+      tokenId = parameters[7];
+    }
     if (argsStr.equalsIgnoreCase("#")) {
       argsStr = "";
     }
@@ -1678,12 +1795,15 @@ public class Client {
     byte[] contractAddress = WalletApi.decodeFromBase58Check(contractAddrStr);
 
     boolean result = walletApiWrapper
-        .callContract(contractAddress, callValue, input, feeLimit, tokenCallValue, tokenId);
-    if (result) {
-      System.out.println("Broadcast the triggerContract successfully.\n"
-          + "Please check the given transaction id to get the result on blockchain using getTransactionInfoById command");
-    } else {
-      System.out.println("Broadcast the triggerContract failed");
+        .callContract(contractAddress, callValue, input, feeLimit, tokenCallValue, tokenId,
+            isConstant);
+    if (!isConstant) {
+      if (result) {
+        System.out.println("Broadcast the " + cmdMethodStr + " successfully.\n"
+            + "Please check the given transaction id to get the result on blockchain using getTransactionInfoById command");
+      } else {
+        System.out.println("Broadcast the " + cmdMethodStr + " failed");
+      }
     }
   }
 
@@ -1740,7 +1860,7 @@ public class Client {
       return;
     }
 
-    boolean ret = walletApiWrapper.accountPermissionUpdate(ownerAddress,parameters[1]);
+    boolean ret = walletApiWrapper.accountPermissionUpdate(ownerAddress, parameters[1]);
     if (ret) {
       logger.info("updateAccountPermission successful !!!!");
     } else {
@@ -1837,6 +1957,36 @@ public class Client {
 
   }
 
+  private void create2(String[] parameters) {
+    if (parameters == null || parameters.length != 3) {
+      System.out.println("create2 needs 3 parameter: ");
+      System.out.println("create2 address code salt");
+      return;
+    }
+
+    byte[] address = WalletApi.decodeFromBase58Check(parameters[0]);
+    if (!WalletApi.addressValid(address)) {
+      System.out.println("length of address must be 21 bytes.");
+      return;
+    }
+
+    byte[] code = Hex.decode(parameters[1]);
+    byte[] temp = Longs.toByteArray(Long.parseLong(parameters[2]));
+    if (temp.length != 8) {
+      System.out.println("invalid salt!");
+      return;
+    }
+    byte[] salt = new byte[32];
+    System.arraycopy(temp, 0, salt, 24, 8);
+
+    byte[] mergedData = ByteUtil.merge(address, salt, Hash.sha3(code));
+    String Address = WalletApi.encode58Check(Hash.sha3omit12(mergedData));
+
+    System.out.println("create2 Address: " + Address);
+
+    return;
+  }
+
   private void help() {
     System.out.println("Help: List of Tron Wallet-cli commands");
     System.out.println(
@@ -1849,12 +1999,13 @@ public class Client {
     System.out.println("BackupWallet2Base64");
     System.out.println("BroadcastTransaction");
     System.out.println("ChangePassword");
+    System.out.println("ClearContractABI");
     System.out.println("CreateAccount");
     System.out.println("CreateProposal");
     System.out.println("CreateWitness");
     System.out.println("DeleteProposal");
     System.out.println(
-        "DeployContract contractName ABI byteCode constructor params isHex fee_limit consume_user_resource_percent origin_energy_limit value token_value token_id <library:address,library:address,...>");
+        "DeployContract contractName ABI byteCode constructor params isHex fee_limit consume_user_resource_percent origin_energy_limit value token_value token_id <library:address,library:address,...> <lib_compiler_version(e.g:v5)>");
     System.out.println("ExchangeCreate");
     System.out.println("ExchangeInject");
     System.out.println("ExchangeTransaction");
@@ -1905,6 +2056,7 @@ public class Client {
     System.out.println("SetAccountId");
     System.out.println("TransferAsset");
     System.out.println("TriggerContract contractAddress method args isHex fee_limit value");
+    System.out.println("TriggerConstantContract contractAddress method args isHex");
     System.out.println("UnfreezeAsset");
     System.out.println("UnfreezeBalance");
     System.out.println("UpdateAccount");
@@ -1915,6 +2067,10 @@ public class Client {
     System.out.println("UpdateAccountPermission");
     System.out.println("VoteWitness");
     System.out.println("WithdrawBalance");
+    System.out.println("Create2");
+    System.out.println("UpdateBrokerage");
+    System.out.println("GetReward");
+    System.out.println("GetBrokerage");
 //    System.out.println("buyStorage");
 //    System.out.println("buyStorageBytes");
 //    System.out.println("sellStorage");
@@ -1932,6 +2088,7 @@ public class Client {
   private String[] getCmd(String cmdLine) {
     if (cmdLine.indexOf("\"") < 0 || cmdLine.toLowerCase().startsWith("deploycontract")
         || cmdLine.toLowerCase().startsWith("triggercontract")
+        || cmdLine.toLowerCase().startsWith("triggerconstantcontract")
         || cmdLine.toLowerCase().startsWith("updateaccountpermission")) {
       return cmdLine.split("\\s+");
     }
@@ -2009,6 +2166,10 @@ public class Client {
           }
           case "changepassword": {
             changePassword();
+            break;
+          }
+          case "clearcontractabi": {
+            clearContractABI(parameters);
             break;
           }
           case "login": {
@@ -2300,7 +2461,11 @@ public class Client {
             break;
           }
           case "triggercontract": {
-            triggerContract(parameters);
+            triggerContract(parameters, false);
+            break;
+          }
+          case "triggerconstantcontract": {
+            triggerContract(parameters, true);
             break;
           }
           case "getcontract": {
@@ -2329,6 +2494,22 @@ public class Client {
           }
           case "broadcasttransaction": {
             broadcastTransaction(parameters);
+            break;
+          }
+          case "create2": {
+            create2(parameters);
+            break;
+          }
+          case "updatebrokerage": {
+            updateBrokerage(parameters);
+            break;
+          }
+          case "getreward": {
+            getReward(parameters);
+            break;
+          }
+          case "getbrokerage": {
+            getBrokerage(parameters);
             break;
           }
           case "exit":

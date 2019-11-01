@@ -784,12 +784,21 @@ public class GrpcClient {
     return blockingStubFull.updateEnergyLimit(request);
   }
 
+  public TransactionExtention clearContractABI(
+      Contract.ClearABIContract request) {
+    return blockingStubFull.clearContractABI(request);
+  }
+
   public TransactionExtention deployContract(Contract.CreateSmartContract request) {
     return blockingStubFull.deployContract(request);
   }
 
   public TransactionExtention triggerContract(Contract.TriggerSmartContract request) {
     return blockingStubFull.triggerContract(request);
+  }
+
+  public TransactionExtention triggerConstantContract(Contract.TriggerSmartContract request) {
+    return blockingStubFull.triggerConstantContract(request);
   }
 
   public SmartContract getContract(byte[] address) {
@@ -801,6 +810,30 @@ public class GrpcClient {
   public TransactionExtention accountPermissionUpdate(
       Contract.AccountPermissionUpdateContract request) {
     return blockingStubFull.accountPermissionUpdate(request);
+  }
+
+  public TransactionExtention updateBrokerage(Contract.UpdateBrokerageContract request) {
+    return blockingStubFull.updateBrokerage(request);
+  }
+
+  public NumberMessage getReward(byte[] address) {
+    BytesMessage bytesMessage = BytesMessage.newBuilder().setValue(ByteString.copyFrom(address))
+        .build();
+    if (blockingStubSolidity != null) {
+      return blockingStubSolidity.getRewardInfo(bytesMessage);
+    } else {
+      return blockingStubFull.getRewardInfo(bytesMessage);
+    }
+  }
+
+  public NumberMessage getBrokerage(byte[] address) {
+    BytesMessage bytesMessage = BytesMessage.newBuilder().setValue(ByteString.copyFrom(address))
+        .build();
+    if (blockingStubSolidity != null) {
+      return blockingStubSolidity.getBrokerageInfo(bytesMessage);
+    } else {
+      return blockingStubFull.getBrokerageInfo(bytesMessage);
+    }
   }
 
 }

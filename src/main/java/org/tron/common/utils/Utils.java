@@ -54,6 +54,7 @@ import org.tron.protos.Contract.AccountPermissionUpdateContract;
 import org.tron.protos.Contract.AccountUpdateContract;
 import org.tron.protos.Contract.AssetIssueContract;
 import org.tron.protos.Contract.AssetIssueContract.FrozenSupply;
+import org.tron.protos.Contract.ClearABIContract;
 import org.tron.protos.Contract.CreateSmartContract;
 import org.tron.protos.Contract.ExchangeCreateContract;
 import org.tron.protos.Contract.ExchangeInjectContract;
@@ -64,12 +65,14 @@ import org.tron.protos.Contract.ParticipateAssetIssueContract;
 import org.tron.protos.Contract.ProposalApproveContract;
 import org.tron.protos.Contract.ProposalCreateContract;
 import org.tron.protos.Contract.ProposalDeleteContract;
+import org.tron.protos.Contract.SetAccountIdContract;
 import org.tron.protos.Contract.TransferAssetContract;
 import org.tron.protos.Contract.TransferContract;
 import org.tron.protos.Contract.TriggerSmartContract;
 import org.tron.protos.Contract.UnfreezeAssetContract;
 import org.tron.protos.Contract.UnfreezeBalanceContract;
 import org.tron.protos.Contract.UpdateAssetContract;
+import org.tron.protos.Contract.UpdateBrokerageContract;
 import org.tron.protos.Contract.UpdateEnergyLimitContract;
 import org.tron.protos.Contract.UpdateSettingContract;
 import org.tron.protos.Contract.VoteAssetContract;
@@ -928,6 +931,18 @@ public class Utils {
               .encode58Check(withdrawBalanceContract.getOwnerAddress().toByteArray());
           result += "\n";
           break;
+        case SetAccountIdContract:
+          SetAccountIdContract setAccountIdContract = contract.getParameter()
+              .unpack(SetAccountIdContract.class);
+          result += "owner_address: ";
+          result += WalletApi
+              .encode58Check(setAccountIdContract.getOwnerAddress().toByteArray());
+          result += "\n";
+          result += "account_id: ";
+          result += new String(setAccountIdContract.getAccountId().toByteArray(),
+              Charset.forName("UTF-8"));
+          result += "\n";
+          break;
         case CreateSmartContract:
           CreateSmartContract createSmartContract = contract.getParameter()
               .unpack(CreateSmartContract.class);
@@ -1126,28 +1141,29 @@ public class Utils {
           result += updateEnergyLimitContract.getOriginEnergyLimit();
           result += "\n";
           break;
-        // case BuyStorageContract:
-        //   BuyStorageContract buyStorageContract = contract.getParameter()
-        //       .unpack(BuyStorageContract.class);
-        //   result += "owner_address: ";
-        //   result += WalletApi
-        //       .encode58Check(buyStorageContract.getOwnerAddress().toByteArray());
-        //   result += "\n";
-        //   result += "quant:";
-        //   result += buyStorageContract.getQuant();
-        //   result += "\n";
-        //   break;
-        // case SellStorageContract:
-        //   SellStorageContract sellStorageContract = contract.getParameter()
-        //       .unpack(SellStorageContract.class);
-        //   result += "owner_address: ";
-        //   result += WalletApi
-        //       .encode58Check(sellStorageContract.getOwnerAddress().toByteArray());
-        //   result += "\n";
-        //   result += "storageBytes:";
-        //   result += sellStorageContract.getStorageBytes();
-        //   result += "\n";
-        //   break;
+        case ClearABIContract:
+          ClearABIContract clearABIContract = contract.getParameter()
+              .unpack(ClearABIContract.class);
+          result += "owner_address: ";
+          result += WalletApi
+              .encode58Check(clearABIContract.getOwnerAddress().toByteArray());
+          result += "\n";
+          result += "contract_address: ";
+          result += WalletApi
+              .encode58Check(clearABIContract.getContractAddress().toByteArray());
+          result += "\n";
+          break;
+        case UpdateBrokerageContract:
+          UpdateBrokerageContract updateBrokerageContract = contract.getParameter()
+              .unpack(UpdateBrokerageContract.class);
+          result += "owner_address: ";
+          result += WalletApi
+              .encode58Check(updateBrokerageContract.getOwnerAddress().toByteArray());
+          result += "\n";
+          result += "brokerage: ";
+          result += updateBrokerageContract.getBrokerage();
+          result += "\n";
+          break;
         default:
           return "";
       }

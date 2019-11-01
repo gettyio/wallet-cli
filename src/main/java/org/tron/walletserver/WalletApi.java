@@ -69,11 +69,13 @@ import org.tron.protos.Contract;
 import org.tron.protos.Contract.AssetIssueContract;
 import org.tron.protos.Contract.BuyStorageBytesContract;
 import org.tron.protos.Contract.BuyStorageContract;
+import org.tron.protos.Contract.ClearABIContract;
 import org.tron.protos.Contract.CreateSmartContract;
 import org.tron.protos.Contract.FreezeBalanceContract;
 import org.tron.protos.Contract.SellStorageContract;
 import org.tron.protos.Contract.UnfreezeAssetContract;
 import org.tron.protos.Contract.UnfreezeBalanceContract;
+import org.tron.protos.Contract.UpdateBrokerageContract;
 import org.tron.protos.Contract.UpdateEnergyLimitContract;
 import org.tron.protos.Contract.UpdateSettingContract;
 import org.tron.protos.Contract.WithdrawBalanceContract;
@@ -86,7 +88,6 @@ import org.tron.protos.Protocol.Key;
 import org.tron.protos.Protocol.Permission;
 import org.tron.protos.Protocol.Proposal;
 import org.tron.protos.Protocol.SmartContract;
-import org.tron.protos.Protocol.TXInput.raw;
 import org.tron.protos.Protocol.Transaction;
 import org.tron.protos.Protocol.Transaction.Result;
 import org.tron.protos.Protocol.TransactionInfo;
@@ -1580,11 +1581,21 @@ public class WalletApi {
     return builder.build();
   }
 
+  public static Contract.ClearABIContract createClearABIContract(byte[] owner,
+      byte[] contractAddress) {
+
+    Contract.ClearABIContract.Builder builder = Contract.ClearABIContract
+        .newBuilder();
+    builder.setOwnerAddress(ByteString.copyFrom(owner));
+    builder.setContractAddress(ByteString.copyFrom(contractAddress));
+    return builder.build();
+  }
+
   public static CreateSmartContract createContractDeployContract(String contractName,
       byte[] address,
       String ABI, String code, long value, long consumeUserResourcePercent, long originEnergyLimit,
       long tokenValue, String tokenId,
-      String libraryAddressPair) {
+      String libraryAddressPair, String compilerVersion) {
     SmartContract.ABI abi = jsonStr2ABI(ABI);
     if (abi == null) {
       logger.error("abi is null");
@@ -1604,7 +1615,7 @@ public class WalletApi {
     }
     byte[] byteCode;
     if (null != libraryAddressPair) {
-      byteCode = replaceLibraryAddress(code, libraryAddressPair);
+      byteCode = replaceLibraryAddress(code, libraryAddressPair, compilerVersion);
     } else {
       byteCode = Hex.decode(code);
     }
@@ -1619,7 +1630,8 @@ public class WalletApi {
     return createSmartContractBuilder.build();
   }
 
-  private static byte[] replaceLibraryAddress(String code, String libraryAddressPair) {
+  private static byte[] replaceLibraryAddress(String code, String libraryAddressPair,
+      String compilerVersion) {
 
     String[] libraryAddressList = libraryAddressPair.split("[,]");
 
@@ -1639,8 +1651,21 @@ public class WalletApi {
       } catch (UnsupportedEncodingException e) {
         throw new RuntimeException(e);  // now ignore
       }
-      String repeated = new String(new char[40 - libraryName.length() - 2]).replace("\0", "_");
-      String beReplaced = "__" + libraryName + repeated;
+
+      String beReplaced;
+      if (compilerVersion == null) {
+        //old version
+        String repeated = new String(new char[40 - libraryName.length() - 2]).replace("\0", "_");
+        beReplaced = "__" + libraryName + repeated;
+      } else if (compilerVersion.equalsIgnoreCase("v5")) {
+        //0.5.4 version
+        String libraryNameKeccak256 = ByteArray
+            .toHexString(Hash.sha3(ByteArray.fromString(libraryName))).substring(0, 34);
+        beReplaced = "__\\$" + libraryNameKeccak256 + "\\$__";
+      } else {
+        throw new RuntimeException("unknown compiler version.");
+      }
+
       Matcher m = Pattern.compile(beReplaced).matcher(code);
       code = m.replaceAll(libraryAddressHex);
     }
@@ -1725,14 +1750,32 @@ public class WalletApi {
 
   }
 
+  public boolean clearContractABI(byte[] contractAddress)
+      throws IOException, CipherException, CancelException {
+    byte[] owner = getAddress();
+    ClearABIContract clearABIContract = createClearABIContract(owner, contractAddress);
+    TransactionExtention transactionExtention = rpcCli.clearContractABI(clearABIContract);
+    if (transactionExtention == null || !transactionExtention.getResult().getResult()) {
+      System.out.println("RPC create trx failed!");
+      if (transactionExtention != null) {
+        System.out.println("Code = " + transactionExtention.getResult().getCode());
+        System.out
+            .println("Message = " + transactionExtention.getResult().getMessage().toStringUtf8());
+      }
+      return false;
+    }
+
+    return processTransactionExtention(transactionExtention);
+  }
+
   public boolean deployContract(String contractName, String ABI, String code,
       long feeLimit, long value, long consumeUserResourcePercent, long originEnergyLimit,
-      long tokenValue, String tokenId, String libraryAddressPair)
+      long tokenValue, String tokenId, String libraryAddressPair, String compilerVersion)
       throws IOException, CipherException, CancelException {
     byte[] owner = getAddress();
     CreateSmartContract contractDeployContract = createContractDeployContract(contractName, owner,
         ABI, code, value, consumeUserResourcePercent, originEnergyLimit, tokenValue, tokenId,
-        libraryAddressPair);
+        libraryAddressPair, compilerVersion);
 
     TransactionExtention transactionExtention = rpcCli.deployContract(contractDeployContract);
     if (transactionExtention == null || !transactionExtention.getResult().getResult()) {
@@ -1772,12 +1815,18 @@ public class WalletApi {
   }
 
   public boolean triggerContract(byte[] contractAddress, long callValue, byte[] data, long feeLimit,
-      long tokenValue, String tokenId)
+      long tokenValue, String tokenId, boolean isConstant)
       throws IOException, CipherException, CancelException {
     byte[] owner = getAddress();
     Contract.TriggerSmartContract triggerContract = triggerCallContract(owner, contractAddress,
         callValue, data, tokenValue, tokenId);
-    TransactionExtention transactionExtention = rpcCli.triggerContract(triggerContract);
+    TransactionExtention transactionExtention;
+    if (isConstant) {
+      transactionExtention = rpcCli.triggerConstantContract(triggerContract);
+    } else {
+      transactionExtention = rpcCli.triggerContract(triggerContract);
+    }
+
     if (transactionExtention == null || !transactionExtention.getResult().getResult()) {
       System.out.println("RPC create call trx failed!");
       System.out.println("Code = " + transactionExtention.getResult().getCode());
@@ -1787,6 +1836,7 @@ public class WalletApi {
     }
 
     Transaction transaction = transactionExtention.getTransaction();
+    // for constant
     if (transaction.getRetCount() != 0 &&
         transactionExtention.getConstantResult(0) != null &&
         transactionExtention.getResult() != null) {
@@ -1825,7 +1875,7 @@ public class WalletApi {
   }
 
 
-  public boolean accountPermissionUpdate(byte[] owner,String permissionJson)
+  public boolean accountPermissionUpdate(byte[] owner, String permissionJson)
       throws CipherException, IOException, CancelException {
     Contract.AccountPermissionUpdateContract contract = createAccountPermissionContract(owner,
         permissionJson);
@@ -1922,6 +1972,37 @@ public class WalletApi {
     transaction = TransactionUtils.sign(transaction, this.getEcKey(walletFile, passwd));
     org.tron.keystore.StringUtils.clear(passwd);
     return transaction;
+  }
+
+  public boolean updateBrokerage(byte[] owner, int brokerage)
+      throws IOException, CipherException, CancelException {
+    if (owner == null) {
+      owner = getAddress();
+    }
+
+    UpdateBrokerageContract.Builder updateBrokerageContract = UpdateBrokerageContract.newBuilder();
+    updateBrokerageContract.setOwnerAddress(ByteString.copyFrom(owner)).setBrokerage(brokerage);
+    TransactionExtention transactionExtention = rpcCli
+        .updateBrokerage(updateBrokerageContract.build());
+    if (transactionExtention == null || !transactionExtention.getResult().getResult()) {
+      System.out.println("RPC create trx failed!");
+      if (transactionExtention != null) {
+        System.out.println("Code = " + transactionExtention.getResult().getCode());
+        System.out
+            .println("Message = " + transactionExtention.getResult().getMessage().toStringUtf8());
+      }
+      return false;
+    }
+
+    return processTransactionExtention(transactionExtention);
+  }
+
+  public static GrpcAPI.NumberMessage getReward(byte[] owner) {
+    return rpcCli.getReward(owner);
+  }
+
+  public static GrpcAPI.NumberMessage getBrokerage(byte[] owner) {
+    return rpcCli.getBrokerage(owner);
   }
 
 }

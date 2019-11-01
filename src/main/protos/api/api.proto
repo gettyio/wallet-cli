@@ -316,13 +316,10 @@ service Wallet {
       }
     };
   }
-
   rpc GetAssetIssueListByName (BytesMessage) returns (AssetIssueList) {
   }
-
   rpc GetAssetIssueById (BytesMessage) returns (AssetIssueContract) {
   }
-
   //Please use GetNowBlock2 instead of this function.
   rpc GetNowBlock (EmptyMessage) returns (Block) {
     option (google.api.http) = {
@@ -405,6 +402,12 @@ service Wallet {
   }
 
   rpc TriggerContract (TriggerSmartContract) returns (TransactionExtention) {
+  }
+
+  rpc TriggerConstantContract (TriggerSmartContract) returns (TransactionExtention) {
+  }
+  
+  rpc ClearContractABI (ClearABIContract) returns (TransactionExtention) {
   }
 
   rpc ListWitnesses (EmptyMessage) returns (WitnessList) {
@@ -602,7 +605,13 @@ service Wallet {
   }
 
   rpc AccountPermissionUpdate (AccountPermissionUpdateContract) returns (TransactionExtention) {
-
+    option (google.api.http) = {
+      post: "/wallet/accountpermissionupdate"
+      body: "*"
+      additional_bindings {
+        get: "/wallet/accountpermissionupdate"
+      }
+    };
   }
 
 
@@ -620,6 +629,17 @@ service Wallet {
 
   rpc GetNodeInfo (EmptyMessage) returns (NodeInfo) {
   };
+
+  rpc GetRewardInfo (BytesMessage) returns (NumberMessage) {
+  };
+
+  rpc GetBrokerageInfo (BytesMessage) returns (NumberMessage) {
+  };
+
+  rpc UpdateBrokerage (UpdateBrokerageContract) returns (TransactionExtention) {
+
+  };
+
 };
 
 
@@ -671,12 +691,11 @@ service WalletSolidity {
         }
       };
   }
+
   rpc GetAssetIssueByName (BytesMessage) returns (AssetIssueContract) {
   }
-
   rpc GetAssetIssueListByName (BytesMessage) returns (AssetIssueList) {
   }
-
   rpc GetAssetIssueById (BytesMessage) returns (AssetIssueContract) {
   }
 
@@ -722,6 +741,7 @@ service WalletSolidity {
   rpc ListExchanges (EmptyMessage) returns (ExchangeList) {
   };
 
+
   rpc GetTransactionById (BytesMessage) returns (Transaction) {
     option (google.api.http) = {
       post: "/walletsolidity/gettransactionbyid"
@@ -731,6 +751,8 @@ service WalletSolidity {
       }
     };
   }
+
+
   rpc GetTransactionInfoById (BytesMessage) returns (TransactionInfo) {
     option (google.api.http) = {
       post: "/walletsolidity/gettransactioninfobyid"
@@ -740,6 +762,7 @@ service WalletSolidity {
       }
     };
   }
+
   //Warning: do not invoke this interface provided by others.
   rpc GenerateAddress (EmptyMessage) returns (AddressPrKeyPairMessage) {
     option (google.api.http) = {
@@ -750,6 +773,13 @@ service WalletSolidity {
       }
     };
   }
+
+  rpc GetRewardInfo (BytesMessage) returns (NumberMessage) {
+  };
+
+  rpc GetBrokerageInfo (BytesMessage) returns (NumberMessage) {
+  };
+
 };
 
 service WalletExtension {
@@ -810,6 +840,8 @@ message Return {
     TOO_BIG_TRANSACTION_ERROR = 7;
     TRANSACTION_EXPIRATION_ERROR = 8;
     SERVER_BUSY = 9;
+    NO_CONNECTION = 10;
+    NOT_ENOUGH_EFFECTIVE_CONNECTION = 11;
     OTHER_ERROR = 20;
   }
 
@@ -1000,7 +1032,7 @@ message TransactionSignWeight {
       NOT_ENOUGH_PERMISSION = 1; // error in
       SIGNATURE_FORMAT_ERROR = 2;
       COMPUTE_ADDRESS_ERROR = 3;
-      PERMISSION_ERROR = 4;      //The key is not in permission
+      PERMISSION_ERROR = 4; //The key is not in permission
       OTHER_ERROR = 20;
     }
     response_code code = 1;
